@@ -1,4 +1,4 @@
-from datetime import timedelta, timezone, datetime
+from datetime import datetime
 import os
 import psycopg2
 #from dotenv import load_dotenv #test env
@@ -78,7 +78,7 @@ def get_ai_prediction_explanations(symbol:str , prediction_date: datetime):
                 "ai_provider": row[2]}
     
 
-def insert_get_ai_prediction_explanations(symbol:str , prediction_date: datetime, prediction_hash: str, explanation: str, ai_model: str, ai_provider: str, response_id: str):
+def insert_ai_prediction_explanations(symbol:str , prediction_date: datetime, prediction_hash: str, explanation: str, ai_model: str, ai_provider: str, response_id: str):
     with get_connection() as conn, conn.cursor() as cur:
         cur.execute("""
             INSERT INTO ai_prediction_explanations (

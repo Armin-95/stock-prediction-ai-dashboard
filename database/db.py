@@ -465,3 +465,21 @@ def get_next_close_prediction(symbol: str, next_close_date, model_type):
 
         return predicted_return, predicted_close
 
+
+def get_prediction_features(symbol: str, next_close_date, model_type):
+    with get_connection () as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT prediction_features
+            FROM stock_future_predictions
+            WHERE symbol = %s AND trading_date = %s AND model_type= %s
+            """,
+            (symbol, next_close_date, model_type)
+        )
+        row  = cur.fetchone()
+
+        if not row:
+            return None
+
+        prediction_features = row
+
+        return prediction_features
