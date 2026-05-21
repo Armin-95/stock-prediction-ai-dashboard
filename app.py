@@ -10,6 +10,7 @@ from ml_pipeline.market_data import sync_prediction_daily_data
 from ml_pipeline.features import build_features
 from services.model_comparison_service import get_or_create_ai_model_comparison_explanation
 from services.model_metrics_service import get_all_model_metrics_for_symbol
+from services.prediction_explanation_service import get_or_create_ai_prediction_explanation
 from services.prediction_service import get_or_create_next_close_predictions
 import logging
 
@@ -164,6 +165,23 @@ def predict():
         model_metrics=model_metrics,
         predict_trading_date=predict_trading_date
     )
+
+@app.route("/api/stocks/<symbol>/ai-prediction-explanation", methods=["POST"])
+def ai_prediction_explanation(symbol):
+    symbol =symbol.upper()
+
+    ai_explanation, ai_model, ai_provider = get_or_create_ai_prediction_explanation(symbol, MODELS)
+
+    if not ai_explanation:
+        return jsonify({"error": f"No AI prediction explanation found for {symbol}."}), 404
+    
+    return jsonify({
+        "symbol": symbol,
+        "explanation": ai_explanation,
+        "response_model": ai_model,
+        "response_provider": ai_provider
+    }) 
+
 
 @app.route("/api/stocks/<symbol>/ai-model-comparison", methods=["POST"])
 def ai_model_comparison(symbol):

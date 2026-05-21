@@ -174,6 +174,7 @@
     <button id="compare-metrics-btn" class="compare-table-button">Compare models metrics quality</button>
     <button id="features-btn" class="compare-table-button">Models training features</button>
     <button id="ai-comparison-btn" class="ai-table-button">AI models comparison</button>
+    <button id="ai-prediction-btn" class="ai-table-button">AI Prediction Explanation</button>
   </div>
 
   <!-- AI Model Comparison Section -->
@@ -193,6 +194,27 @@
       <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:flex-end; gap:16px; font-size:0.85rem; color:#a0a0c0;">
         <div><span style="color:#d0d0ff;">Model:</span> <span id="ai-response-model" style="font-family:'Roboto Mono',monospace;">—</span></div>
         <div><span style="color:#d0d0ff;">Provider:</span> <span id="ai-response-provider" style="font-family:'Roboto Mono',monospace;">—</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Prediction Explanation Section -->
+  <div id="ai-prediction-section" class="ai-comparison-section">
+    <div class="ai-comparison-header">
+      <span class="ai-badge">AI Insight</span>
+      <h4 class="ai-comparison-title">AI Prediction Explanation</h4>
+      <p class="ai-comparison-subtitle">
+        AI-generated explanation of the predicted next close price and the reasoning behind the selected signal.
+      </p>
+    </div>
+
+    <div class="ai-comparison-box">
+      <div id="ai-prediction-content" class="ai-comparison-content">
+        Click the button to load the AI prediction explanation.
+      </div>
+      <div style="margin-top:16px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:flex-end; gap:16px; font-size:0.85rem; color:#a0a0c0;">
+        <div><span style="color:#d0d0ff;">Model:</span> <span id="ai-prediction-model" style="font-family:'Roboto Mono',monospace;">—</span></div>
+        <div><span style="color:#d0d0ff;">Provider:</span> <span id="ai-prediction-provider" style="font-family:'Roboto Mono',monospace;">—</span></div>
       </div>
     </div>
   </div>
@@ -581,8 +603,8 @@
         'Strategy Std': false,
         'Sharpe Ratio': true,
         'Total Return': true,
-        'Max Loss': false,
-        'Max Drawdown': false
+        'Max Loss': true,
+        'Max Drawdown': true
       };
       
       rows.forEach(row => {
@@ -663,12 +685,18 @@
       }
     };
 
-    // AI comparison button logic
+    // AI buttons logic
     const aiCompareBtn = document.getElementById('ai-comparison-btn');
     const aiCompareSection = document.getElementById('ai-comparison-section');
     const aiCompareContent = document.getElementById('ai-comparison-content');
     let aiCompareVisible = false;
     let aiComparisonLoaded = false;
+
+    const aiPredictionBtn = document.getElementById('ai-prediction-btn');
+    const aiPredictionSection = document.getElementById('ai-prediction-section');
+    const aiPredictionContent = document.getElementById('ai-prediction-content');
+    let aiPredictionVisible = false;
+    let aiPredictionLoaded = false;
 
     function formatAiText(text) {
       const safeText = text
@@ -682,32 +710,65 @@
         .replace(/\n/g, '<br>');
     }
 
+    async function fetchAiExplanation(endpoint, contentElement, modelElementId, providerElementId) {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!response.ok) {
+        const errorJson = await response.json().catch(() => null);
+        const message = errorJson && errorJson.error ? errorJson.error : `Failed to fetch AI explanation (${response.status})`;
+        contentElement.textContent = message;
+        return false;
+      }
+
+      const data = await response.json();
+      contentElement.innerHTML = formatAiText(data.explanation || 'No explanation was returned.');
+      document.getElementById(modelElementId).textContent = data.response_model || '—';
+      document.getElementById(providerElementId).textContent = data.response_provider || '—';
+      return true;
+    }
+
     async function loadAiModelComparison() {
       aiCompareBtn.disabled = true;
       aiCompareBtn.textContent = 'Loading AI comparison...';
       try {
-        const response = await fetch(`/api/stocks/${symbol}/ai-model-comparison`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-          const errorJson = await response.json().catch(() => null);
-          const message = errorJson && errorJson.error ? errorJson.error : `Failed to fetch AI comparison (${response.status})`;
-          aiCompareContent.textContent = message;
-          return;
+        const loaded = await fetchAiExplanation(
+          `/api/stocks/${symbol}/ai-model-comparison`,
+          aiCompareContent,
+          'ai-response-model',
+          'ai-response-provider'
+        );
+        if (loaded) {
+          aiComparisonLoaded = true;
         }
-
-        const data = await response.json();
-        aiCompareContent.innerHTML = formatAiText(data.explanation || 'No explanation was returned.');
-        document.getElementById('ai-response-model').textContent = data.response_model || '—';
-        document.getElementById('ai-response-provider').textContent = data.response_provider || '—';
-        aiComparisonLoaded = true;
       } catch (fetchError) {
         aiCompareContent.textContent = `Unable to load AI comparison: ${fetchError.message}`;
       } finally {
         aiCompareBtn.disabled = false;
         aiCompareBtn.textContent = aiCompareVisible ? 'Hide AI models comparison' : 'AI models comparison';
+      }
+    }
+
+    async function loadAiPredictionExplanation() {
+      aiPredictionBtn.disabled = true;
+      aiPredictionBtn.textContent = 'Loading AI prediction...';
+      try {
+        const loaded = await fetchAiExplanation(
+          `/api/stocks/${symbol}/ai-prediction-explanation`,
+          aiPredictionContent,
+          'ai-prediction-model',
+          'ai-prediction-provider'
+        );
+        if (loaded) {
+          aiPredictionLoaded = true;
+        }
+      } catch (fetchError) {
+        aiPredictionContent.textContent = `Unable to load AI prediction explanation: ${fetchError.message}`;
+      } finally {
+        aiPredictionBtn.disabled = false;
+        aiPredictionBtn.textContent = aiPredictionVisible ? 'Hide AI Prediction Explanation' : 'AI Prediction Explanation';
       }
     }
 
@@ -720,6 +781,18 @@
           loadAiModelComparison();
         }
         aiCompareSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    aiPredictionBtn.onclick = function() {
+      aiPredictionVisible = !aiPredictionVisible;
+      aiPredictionSection.style.display = aiPredictionVisible ? 'block' : 'none';
+      aiPredictionBtn.textContent = aiPredictionVisible ? 'Hide AI Prediction Explanation' : 'AI Prediction Explanation';
+      if (aiPredictionVisible) {
+        if (!aiPredictionLoaded) {
+          loadAiPredictionExplanation();
+        }
+        aiPredictionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     };
 
