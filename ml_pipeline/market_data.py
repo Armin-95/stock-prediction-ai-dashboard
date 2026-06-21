@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import time
 import pandas as pd
 import yfinance as yf
 from database.db import get_latest_available_close_datetime, get_latest_stored_prediction_bar_date, upsert_prediction_daily_bars
@@ -26,13 +27,25 @@ def _determine_download_range(latest_close_dt, older_25_close_dt):
     return start_date, end_date
 
 
-def _download_daily_data(symbol, start_date, end_date):
-     if start_date is None or end_date is None or start_date >= end_date:
+def _download_daily_data_with_retry(symbol, start_date, end_date, retries = 3): #retry safety if yf for some reason (too many req) fetch invalid data 
+    if start_date is None or end_date is None or start_date >= end_date:
         return None
-    
-     df = yf.download(symbol, start=start_date ,end=end_date, interval="1d", auto_adjust =True, progress=False)
+     
+    for attempt in range (1, retries + 1):
+        logger.info("Downloading %s from yahoo, attempt: %s", symbol, attempt)
 
-     return df
+        df = yf.download(symbol, start=start_date ,end=end_date, interval="1d", auto_adjust =True, progress=False, threads=False)
+     
+        if df is None or df.empty or df.isnull().values.any():
+            logger.warning("Fetched invalid/incomplete data from YF for %s", symbol)
+            time.sleep(attempt * 2)
+            continue
+        
+        return df
+
+    logger.error("Could not retrieve correct data for %s after %s attempts.", symbol, retries)
+    return None
+
 
 
 def _prepare_daily_data(df,symbol):
@@ -77,12 +90,12 @@ def sync_prediction_daily_data(symbol):
         last_stored_close_date = get_latest_stored_prediction_bar_date(symbol)
 
         if last_stored_close_date is None:
-            raw_df = _download_daily_data(symbol, start_date, end_date)
+            raw_df = _download_daily_data_with_retry(symbol, start_date, end_date)
 
         elif latest_close_dt.date() > last_stored_close_date: # some last entries of close symbol missing in db, fetch from YF 
             if last_stored_close_date > older_25_close_dt.date(): # when less than 25 entries of close symbol missing in db (complete last 25 available entries)
                 start_date = last_stored_close_date + timedelta(days=1) 
-            raw_df = _download_daily_data(symbol, start_date, end_date)
+            raw_df = _download_daily_data_with_retry(symbol, start_date, end_date)
 
         else:
             return False

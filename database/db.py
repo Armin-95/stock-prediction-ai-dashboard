@@ -30,11 +30,11 @@ def init_db():
         CREATE TABLE IF NOT EXISTS prediction_daily_bars (
             symbol TEXT NOT NULL,
             trading_date DATE NOT NULL,
-            open DOUBLE PRECISION,
-            high DOUBLE PRECISION,
-            low  DOUBLE PRECISION,
-            close DOUBLE PRECISION,
-            volume DOUBLE PRECISION,
+            open DOUBLE PRECISION NOT NULL,
+            high DOUBLE PRECISION NOT NULL,
+            low  DOUBLE PRECISION NOT NULL,
+            close DOUBLE PRECISION NOT NULL,
+            volume DOUBLE PRECISION NOT NULL,
             PRIMARY KEY (symbol, trading_date)
         );
         """)

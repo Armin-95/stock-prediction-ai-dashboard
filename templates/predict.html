@@ -403,7 +403,6 @@
   const predictedCloseXgboost = {{ results["xgboost"][1]|round(4) }};
 
   // Append a label for the prediction and the predicted price
-  // (You can use 'Prediction' or pass a timestamp from Python if you prefer)
   const timesWithPred = [...chartTimes, 'Prediction'];
   const pricesWithPredXgboost = [...chartPrices, predictedCloseXgboost];
 
