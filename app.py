@@ -40,6 +40,15 @@ limiter = Limiter(
     default_limits=["40 per day", "20 per hour"]
 )
 
+@app.before_request
+def log_request():
+    app.logger.info(
+        "IP=%s METHOD=%s PATH=%s",
+        request.remote_addr,
+        request.method,
+        request.path
+    )
+
 COMPANY_NAMES = {
     'AAPL': 'Apple Inc.',
     'MSFT': 'Microsoft Corporation',
