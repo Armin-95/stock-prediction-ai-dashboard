@@ -4,7 +4,12 @@ from collections import OrderedDict
 import joblib
 import os
 from pathlib import Path
-import pandas as pd  
+import pandas as pd
+import logging
+from werkzeug.middleware.proxy_fix import ProxyFix
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 from database.db import get_prediction_daily_bars
 from ml_pipeline.market_data import sync_prediction_daily_data
 from ml_pipeline.features import build_features
@@ -12,7 +17,7 @@ from services.model_comparison_service import get_or_create_ai_model_comparison_
 from services.model_metrics_service import get_all_model_metrics_for_symbol
 from services.prediction_explanation_service import get_or_create_ai_prediction_explanation
 from services.prediction_service import get_or_create_next_close_predictions
-import logging
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +25,20 @@ logging.basicConfig(
     )
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+
+# Trust Render proxy so request.remote_addr becomes real user IP
+app.wsgi_app = ProxyFix(
+    app.wsgi_app,
+    x_for=1,
+    x_proto=1,
+    x_host=1
+)
+
+limiter = Limiter(
+    key_func=get_remote_address,
+    app=app,
+    default_limits=["40 per day", "20 per hour"]
+)
 
 COMPANY_NAMES = {
     'AAPL': 'Apple Inc.',
@@ -87,6 +106,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/analyze', methods=['POST'])
+@limiter.limit("10 per hour; 40 per day")
 def analyze():
     """Fetch data, compute stats, and render chart page."""
     symbol = request.form['symbol'].upper()
@@ -113,6 +133,7 @@ def analyze():
     )
 
 @app.route('/predict', methods=['POST'])
+@limiter.limit("20 per hour; 50 per day")
 def predict():
     symbol = request.form['symbol'].upper()
     company_name = COMPANY_NAMES.get(symbol, symbol)
@@ -167,6 +188,7 @@ def predict():
     )
 
 @app.route("/api/stocks/<symbol>/ai-prediction-explanation", methods=["POST"])
+@limiter.limit("20 per minute; 200 per day")
 def ai_prediction_explanation(symbol):
     symbol =symbol.upper()
 
@@ -184,6 +206,7 @@ def ai_prediction_explanation(symbol):
 
 
 @app.route("/api/stocks/<symbol>/ai-model-comparison", methods=["POST"])
+@limiter.limit("20 per minute; 200 per day")
 def ai_model_comparison(symbol):
     symbol =symbol.upper()
 
@@ -201,10 +224,10 @@ def ai_model_comparison(symbol):
 
 
 @app.route('/api/stock_data')
+@limiter.limit("15 per minute")
 def stock_data():
     symbol = request.args.get('symbol')
     data = yf.download(symbol, period='2d', interval='5m', auto_adjust=True)
-    # time zone Convert to Central European Summer Time
     idx = data.index
     if idx.tz is None:
         idx = idx.tz_localize("UTC")
