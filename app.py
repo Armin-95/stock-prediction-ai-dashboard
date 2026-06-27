@@ -39,6 +39,11 @@ limiter = Limiter(
     app=app,
     default_limits=["40 per day", "20 per hour"]
 )
+    
+@app.before_request
+def maintenance_mode():
+    if os.environ.get("MAINTENANCE_MODE") == "true":
+        return "StockScopeAI is temporarily offline.", 503
 
 @app.before_request
 def log_request():

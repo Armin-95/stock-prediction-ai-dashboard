@@ -732,6 +732,7 @@
     async function loadAiModelComparison() {
       aiCompareBtn.disabled = true;
       aiCompareBtn.textContent = 'Loading AI comparison...';
+      aiCompareContent.textContent = 'Loading AI comparison...';
       try {
         const loaded = await fetchAiExplanation(
           `/api/stocks/${symbol}/ai-model-comparison`,
@@ -753,6 +754,7 @@
     async function loadAiPredictionExplanation() {
       aiPredictionBtn.disabled = true;
       aiPredictionBtn.textContent = 'Loading AI prediction...';
+      aiPredictionContent.textContent = 'Loading AI prediction explanation...';
       try {
         const loaded = await fetchAiExplanation(
           `/api/stocks/${symbol}/ai-prediction-explanation`,
