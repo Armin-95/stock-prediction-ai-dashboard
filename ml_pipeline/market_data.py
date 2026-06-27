@@ -30,7 +30,9 @@ def _determine_download_range(latest_close_dt, older_25_close_dt):
 def _download_daily_data_with_retry(symbol, start_date, end_date, retries = 3): #retry safety if yf for some reason (too many req) fetch invalid data 
     if start_date is None or end_date is None or start_date >= end_date:
         return None
-     
+    
+    df = None
+
     for attempt in range (1, retries + 1):
         logger.info("Downloading %s from yahoo, attempt: %s", symbol, attempt)
 
@@ -43,9 +45,18 @@ def _download_daily_data_with_retry(symbol, start_date, end_date, retries = 3): 
         
         return df
 
-    logger.error("Could not retrieve correct data for %s after %s attempts.", symbol, retries)
-    return None
+    if df is not None and not df.empty and df.isnull().values.any():#work with df with Null values, clear the df
+        df_incomplete = df.dropna()
+        if not df_incomplete.empty: #if cleared df has still any rows
+            logger.warning("Could not retrieve all existing data for %s, prediction is calculated to the last available close.",symbol)
+            
+            return df_incomplete 
 
+
+    logger.error("Could not retrieve correct data for %s after %s attempts.", symbol, retries)
+    logger.warning("Prediction is calculated from the last available close in DB.")
+
+    return None
 
 
 def _prepare_daily_data(df,symbol):
