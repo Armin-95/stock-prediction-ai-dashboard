@@ -48,8 +48,11 @@ def maintenance_mode():
 @app.before_request
 def log_request():
     app.logger.info(
-        "IP=%s METHOD=%s PATH=%s",
+        "IP_INFO: REMOTE_ADDR=%s | LIMITER_KEY=%s | X_FORWARDED_FOR=%s | ACCESS_ROUTE=%s | METHOD=%s | PATH=%s",
         request.remote_addr,
+        get_remote_address(),
+        request.headers.get("X-Forwarded-For"),
+        list(request.access_route),
         request.method,
         request.path
     )
