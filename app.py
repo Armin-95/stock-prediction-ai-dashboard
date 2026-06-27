@@ -8,7 +8,6 @@ import pandas as pd
 import logging
 from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
 from database.db import get_prediction_daily_bars
 from ml_pipeline.market_data import sync_prediction_daily_data
@@ -26,36 +25,35 @@ logging.basicConfig(
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
-# Trust Render proxy so request.remote_addr becomes real user IP
-app.wsgi_app = ProxyFix(
-    app.wsgi_app,
-    x_for=1,
-    x_proto=1,
-    x_host=1
-)
 
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=["40 per day", "20 per hour"]
-)
+def get_client_ip():
+    if request.access_route:
+        return request.access_route[0]
+    return request.remote_addr
+
+
+@app.before_request
+def log_request():
+    app.logger.info(
+        "CLIENT_IP=%s METHOD=%s PATH=%s",
+        get_client_ip(),
+        request.method,
+        request.path
+    )
     
+
 @app.before_request
 def maintenance_mode():
     if os.environ.get("MAINTENANCE_MODE") == "true":
         return "StockScopeAI is temporarily offline.", 503
 
-@app.before_request
-def log_request():
-    app.logger.info(
-        "IP_INFO: REMOTE_ADDR=%s | LIMITER_KEY=%s | X_FORWARDED_FOR=%s | ACCESS_ROUTE=%s | METHOD=%s | PATH=%s",
-        request.remote_addr,
-        get_remote_address(),
-        request.headers.get("X-Forwarded-For"),
-        list(request.access_route),
-        request.method,
-        request.path
-    )
+
+limiter = Limiter(
+    key_func=get_client_ip,
+    app=app,
+    default_limits=["40 per day", "20 per hour"]
+)
+
 
 COMPANY_NAMES = {
     'AAPL': 'Apple Inc.',
