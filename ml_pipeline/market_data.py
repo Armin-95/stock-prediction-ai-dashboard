@@ -34,7 +34,7 @@ def _download_daily_data_with_retry(symbol, start_date, end_date, retries = 3): 
     df = None
 
     for attempt in range (1, retries + 1):
-        logger.info("Downloading %s from yahoo, attempt: %s", symbol, attempt)
+        logger.info("Downloading %s from yahoo, attempt: %s, start date: %s, end date: %s", symbol, attempt, start_date, end_date)
 
         df = yf.download(symbol, start=start_date ,end=end_date, interval="1d", auto_adjust =True, progress=False, threads=False)
      
