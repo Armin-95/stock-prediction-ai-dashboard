@@ -5,6 +5,8 @@ import psycopg2
 from psycopg2.extras import execute_values, Json
 import pandas as pd
 import numpy as np
+
+from database.ai_chat_db import init_ai_chat_tables
 #from dotenv import load_dotenv #test env
 
 
@@ -25,6 +27,10 @@ def get_connection():
 def init_db():
     """Create tables if not exist."""
     with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("""
+        CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        """)
+
         # 1) Daily price storage
         cur.execute("""
         CREATE TABLE IF NOT EXISTS prediction_daily_bars (
@@ -108,32 +114,34 @@ def init_db():
         # AI model comparison metrics explanations 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS ai_model_comparison_explanations  (
-                    symbol TEXT NOT NULL,
-                    metric_hash TEXT NOT NULL,
-                    explanation TEXT NOT NULL,
-                    ai_provider TEXT,
-                    ai_model TEXT,
-                    response_id TEXT,
-                    created_at TIMESTAMPTZ DEFAULT NOW(),
-                    PRIMARY KEY (symbol, metric_hash)
+            symbol TEXT NOT NULL,
+            metric_hash TEXT NOT NULL,
+            explanation TEXT NOT NULL,
+            ai_provider TEXT,
+            ai_model TEXT,
+            response_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            PRIMARY KEY (symbol, metric_hash)
         );
         """)
 
-                # AI prediction explainations 
+        # AI prediction explainations 
         cur.execute("""
         CREATE TABLE IF NOT EXISTS ai_prediction_explanations  (
-                    symbol TEXT NOT NULL,
-                    prediction_date DATE NOT NULL,
-                    prediction_hash TEXT NOT NULL,
-                    explanation TEXT NOT NULL,
-                    ai_provider TEXT,
-                    ai_model TEXT,
-                    response_id TEXT,
-                    created_at TIMESTAMPTZ DEFAULT NOW(),
-                    PRIMARY KEY (symbol, prediction_date)
+            symbol TEXT NOT NULL,
+            prediction_date DATE NOT NULL,
+            prediction_hash TEXT NOT NULL,
+            explanation TEXT NOT NULL,
+            ai_provider TEXT,
+            ai_model TEXT,
+            response_id TEXT,
+            created_at TIMESTAMPTZ DEFAULT NOW(),
+            PRIMARY KEY (symbol, prediction_date)
         );
         """)
 
+        #stock AI chat tables 
+        init_ai_chat_tables(cur) 
         conn.commit()
 
 
