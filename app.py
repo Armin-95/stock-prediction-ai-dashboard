@@ -6,16 +6,23 @@ import os
 from pathlib import Path
 import pandas as pd
 import logging
-from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_limiter import Limiter
+from google.genai.errors import ServerError
 
 from database.db import get_prediction_daily_bars
+from database.ai_chat_db import ChatConversationLimitExceeded
 from ml_pipeline.market_data import sync_prediction_daily_data
 from ml_pipeline.features import build_features
 from services.model_comparison_service import get_or_create_ai_model_comparison_explanation
 from services.model_metrics_service import get_all_model_metrics_for_symbol
 from services.prediction_explanation_service import get_or_create_ai_prediction_explanation
 from services.prediction_service import get_or_create_next_close_predictions
+from services.stock_chat_service import (get_or_create_stock_ai_chat_conversation, 
+    get_stock_ai_chat_messages_for_display,
+    send_stock_ai_chat_message,
+    delete_stock_ai_chat_conversation,
+    create_new_stock_ai_chat_conversation
+)
 
 
 logging.basicConfig(
@@ -24,6 +31,16 @@ logging.basicConfig(
     )
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
+
+secret_key = os.getenv("SECRET_KEY")
+
+if not secret_key:
+    raise RuntimeError("SECRET_KEY environment variable is not set.")
+
+app.config["SECRET_KEY"] = secret_key
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True
 
 
 def get_client_ip():
@@ -63,6 +80,8 @@ COMPANY_NAMES = {
     'TSLA': 'Tesla, Inc.',
     'META': 'Meta Platforms, Inc.'
 }
+
+ALLOWED_SYMBOLS = {"AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META"}
 
 # Load ML model once at startup
 BASE_DIR = Path(__file__).resolve().parent
@@ -236,6 +255,104 @@ def ai_model_comparison(symbol):
         "response_model": ai_model,
         "response_provider": ai_provider
     }) 
+
+
+@app.route("/api/stocks/<symbol>/ai-chat/open", methods=["POST"])
+@limiter.limit("5 per minute; 50 per day")
+def open_stock_ai_chat_conversation(symbol):
+    symbol = symbol.upper()
+    if symbol not in ALLOWED_SYMBOLS:
+        
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    try:
+        get_or_create_stock_ai_chat_conversation(symbol)
+        conversation_messages = get_stock_ai_chat_messages_for_display(symbol, limit=20)
+
+        return jsonify (conversation_messages),200
+    
+    except Exception as e:
+        app.logger.exception("Failed to open stock AI chat for %s.",symbol)
+
+        return jsonify({"error":"Cound not open AI chat"}),500
+
+
+@app.route("/api/stocks/<symbol>/ai-chat/send-message", methods=["POST"])
+@limiter.limit("5 per minute; 50 per day")
+def send_message_stock_ai_chat_conversation(symbol):
+    symbol = symbol.upper()
+    if symbol not in ALLOWED_SYMBOLS:
+        
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    try:
+        data = request.get_json(silent=True) or {}
+        user_question = data.get("question")
+        ai_response = send_stock_ai_chat_message(symbol = symbol, question = user_question, models = MODELS)
+        
+        return jsonify(ai_response),200
+    
+    except ValueError as e:
+        return jsonify({"error":str(e)}),400 #return exception defined in send_stock_ai_chat_message for bad input
+    
+    except ServerError:
+        app.logger.warning( "AI provider temporarily unavailable for %s.",symbol)
+        return jsonify({"error": "ai_service_unavailable",
+            "error_message": "The AI service is temporarily busy. Please try again later."}), 503
+
+
+    except Exception:
+        app.logger.exception("Failed to create AI chat response for %s", symbol) #others exception
+        return jsonify({"error":"Could not send AI chat message."}), 500
+
+
+@app.route("/api/stocks/<symbol>/ai-chat/delete-conversation", methods=["DELETE"])
+@limiter.limit("5 per minute; 20 per day")
+def delete_user_stock_ai_chat_conversation(symbol):
+    symbol = symbol.upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    try:
+        deleted_count = delete_stock_ai_chat_conversation(symbol) # in future add selected_conversation_id if user want to delete other than active conversation
+        
+        if not deleted_count:
+            app.logger.warning("No active AI chat conversation found to delete for %s.", symbol )
+            return jsonify({"error":"No active AI chat conversation found."}), 404
+
+
+        app.logger.info("Deleted conversation for symbol %s.", symbol)
+        return jsonify ({"message":"Conversation successfully deleted."}),200
+
+
+    except Exception:
+        app.logger.exception("Failed to delete conversation for %s .", symbol )
+        return jsonify({"error":"Could not delete selected AI conversation." }), 500
+
+
+@app.route("/api/stocks/<symbol>/ai-chat/new-conversation", methods=["POST"])
+@limiter.limit("5 per minute; 50 per day")
+def create_new_stock_ai_chat_conversation_route(symbol):
+    symbol = symbol.upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    try:
+        new_conversation = create_new_stock_ai_chat_conversation(symbol)
+
+        if new_conversation.get("error")== "conversation_limit_exceeded":
+            app.logger.warning("Number of available conversation for symbol: %s exceeded limit.",symbol)
+            return jsonify(new_conversation),429 
+        
+        app.logger.info("Created new AI chat conversation for %s.", symbol)
+        return jsonify(new_conversation),201
+    
+    except Exception:
+        app.logger.warning("Failed to create new stock AI conversation for: %s",symbol)
+        return jsonify({"error":"Could not create new AI conversation."}),500
+
 
 
 @app.route('/api/stock_data')
