@@ -170,11 +170,58 @@
 
   </div>
 
+  <div class="ai-chat-main-action">
+    <button id="ai-chat-btn" class="ai-table-button ai-stock-chat-main-button">
+      AI Stock Chat
+    </button>
+  </div>
+
   <div class="compare-action-bar">
-    <button id="compare-metrics-btn" class="compare-table-button">Compare models metrics quality</button>
-    <button id="features-btn" class="compare-table-button">Models training features</button>
-    <button id="ai-comparison-btn" class="ai-table-button">AI models comparison</button>
-    <button id="ai-prediction-btn" class="ai-table-button">AI Prediction Explanation</button>
+    <button id="compare-metrics-btn" class="compare-table-button">
+      Compare models metrics quality
+    </button>
+
+    <button id="features-btn" class="compare-table-button">
+      Models training features
+    </button>
+
+    <button id="ai-comparison-btn" class="ai-table-button">
+      AI models comparison
+    </button>
+
+    <button id="ai-prediction-btn" class="ai-table-button">
+      AI Prediction Explanation
+    </button>
+  </div>
+
+  <!-- AI Chat Section -->
+  <div id="ai-chat-section" class="ai-comparison-section ai-chat-section">
+    <div class="ai-comparison-header">
+      <span class="ai-badge">AI Insight</span>
+      <h4 class="ai-comparison-title">AI Stock Chat</h4>
+      <p class="ai-comparison-subtitle">
+        Ask questions about this symbol, reopen the same chat, start a new conversation, or delete the active chat.
+      </p>
+    </div>
+
+    <div class="ai-comparison-box">
+      <div class="ai-chat-toolbar">
+        <div id="ai-chat-status" class="ai-chat-status">Open the chat to load your conversation history.</div>
+        <div class="ai-chat-actions">
+          <button id="ai-chat-delete-btn" class="ai-chat-button delete">Delete conversation</button>
+          <button id="ai-chat-new-btn" class="ai-chat-button secondary">Create new conversation</button>
+        </div>
+      </div>
+
+      <div id="ai-chat-messages" class="ai-chat-messages">
+        <div class="ai-chat-placeholder">Chat will appear here after opening or sending a message.</div>
+      </div>
+
+      <form id="ai-chat-form" class="ai-chat-controls">
+        <textarea id="ai-chat-input" class="ai-chat-input" placeholder="Type your question here..." rows="3" required></textarea>
+        <button type="submit" class="ai-chat-button">Send message</button>
+      </form>
+    </div>
   </div>
 
   <!-- AI Model Comparison Section -->
@@ -796,6 +843,256 @@
         aiPredictionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     };
+
+    const aiChatBtn = document.getElementById('ai-chat-btn');
+    const aiChatSection = document.getElementById('ai-chat-section');
+    const aiChatStatus = document.getElementById('ai-chat-status');
+    const aiChatMessagesContainer = document.getElementById('ai-chat-messages');
+    const aiChatForm = document.getElementById('ai-chat-form');
+    const aiChatInput = document.getElementById('ai-chat-input');
+    const aiChatDeleteBtn = document.getElementById('ai-chat-delete-btn');
+    const aiChatNewBtn = document.getElementById('ai-chat-new-btn');
+
+    let aiChatVisible = false;
+    let aiChatLoaded = false;
+    let aiChatConversationId = null;
+
+    function escapeChatText(text) {
+      return String(text)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replace(/\n/g, '<br>');
+    }
+
+    function buildChatMessage(message) {
+      const role = message.role || 'assistant';
+      const isUser = role === 'user';
+      const content = message.content || '';
+      const createdAt = message.created_at ? new Date(message.created_at).toLocaleString() : null;
+      const status = message.status || 'completed';
+      const wrapper = document.createElement('div');
+      wrapper.className = `chat-message ${isUser ? 'chat-message-user' : 'chat-message-assistant'}`;
+      const bubble = document.createElement('div');
+      bubble.className = `chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`;
+      bubble.innerHTML = status === 'failed' && !content
+        ? '<em>The AI service is temporarily busy. Please try again later.</em>'
+        : escapeChatText(content || (isUser ? 'You sent an empty message.' : 'No response content.'));
+
+      const meta = document.createElement('div');
+      meta.className = 'chat-meta';
+      meta.textContent = isUser ? 'You' : 'Assistant';
+      if (createdAt) {
+        meta.textContent += ` · ${createdAt}`;
+      }
+      if (!isUser && status === 'failed') {
+        meta.textContent += ' · failed';
+      }
+
+      wrapper.appendChild(bubble);
+      wrapper.appendChild(meta);
+      return wrapper;
+    }
+
+    function renderChatMessages(messages) {
+      aiChatMessagesContainer.innerHTML = '';
+      if (!messages || messages.length === 0) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'ai-chat-placeholder';
+        placeholder.textContent = 'No conversation history yet. Send a message to start the chat.';
+        aiChatMessagesContainer.appendChild(placeholder);
+        return;
+      }
+
+      messages.forEach((message) => {
+        aiChatMessagesContainer.appendChild(buildChatMessage(message));
+      });
+      scrollChatToBottom();
+    }
+
+    function scrollChatToBottom() {
+      aiChatMessagesContainer.scrollTop = aiChatMessagesContainer.scrollHeight;
+    }
+
+    function setChatStatus(text, isError = false) {
+      aiChatStatus.textContent = text;
+      aiChatStatus.style.color = isError ? '#ffb3b3' : '#b6f6fc';
+    }
+
+    async function loadAiChatConversation() {
+      aiChatBtn.disabled = true;
+      aiChatInput.disabled = true;
+      aiChatDeleteBtn.disabled = true;
+      aiChatNewBtn.disabled = true;
+      setChatStatus('Loading chat...');
+      aiChatMessagesContainer.innerHTML = '<div class="ai-chat-placeholder">Loading conversation...</div>';
+      try {
+        const response = await fetch(`/api/stocks/${symbol}/ai-chat/open`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => null);
+          throw new Error(errorJson?.error || `Unable to open chat (${response.status})`);
+        }
+
+        const data = await response.json();
+        aiChatConversationId = data.conversation_id || null;
+        renderChatMessages(data.messages || []);
+        setChatStatus(data.messages && data.messages.length > 0
+          ? `Loaded ${data.messages.length} ${data.messages.length === 1 ? 'message' : 'messages'}.`
+          : 'Open chat loaded. Send your first question.');
+        aiChatLoaded = true;
+      } catch (error) {
+        aiChatMessagesContainer.innerHTML = '<div class="ai-chat-placeholder">Unable to load chat. Try again later.</div>';
+        setChatStatus(error.message || 'Unable to load chat.', true);
+      } finally {
+        aiChatBtn.disabled = false;
+        aiChatInput.disabled = false;
+        aiChatDeleteBtn.disabled = false;
+        aiChatNewBtn.disabled = false;
+      }
+    }
+
+    async function sendAiChatMessage(question) {
+      const trimmedQuestion = question.trim();
+
+      if (!trimmedQuestion) {
+        setChatStatus('Enter a message before sending.', true);
+        return;
+      }
+
+      // Clear text box immediately after valid submit
+      aiChatInput.value = '';
+
+      aiChatInput.disabled = true;
+      aiChatDeleteBtn.disabled = true;
+      aiChatNewBtn.disabled = true;
+      setChatStatus('Sending message...');
+
+      try {
+        const response = await fetch(`/api/stocks/${symbol}/ai-chat/send-message`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: trimmedQuestion })
+        });
+
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => null);
+
+          // Refresh chat because backend may have saved:
+          // user message + failed assistant message
+          await loadAiChatConversation();
+
+          throw new Error(
+            errorJson?.error_message ||
+            errorJson?.error ||
+            `Failed to send message (${response.status})`
+          );
+        }
+
+        await loadAiChatConversation();
+        aiChatInput.focus();
+
+      } catch (error) {
+        setChatStatus(error.message || 'Failed to send message.', true);
+        aiChatInput.focus();
+
+      } finally {
+        aiChatInput.disabled = false;
+        aiChatDeleteBtn.disabled = false;
+        aiChatNewBtn.disabled = false;
+      }
+    }
+
+    async function createNewChatConversation() {
+      aiChatInput.disabled = true;
+      aiChatDeleteBtn.disabled = true;
+      aiChatNewBtn.disabled = true;
+      setChatStatus('Creating a new conversation...');
+      try {
+        const response = await fetch(`/api/stocks/${symbol}/ai-chat/new-conversation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => null);
+          throw new Error(errorJson?.error || `Unable to create new conversation (${response.status})`);
+        }
+
+        const data = await response.json();
+        aiChatConversationId = data.conversation_id || null;
+        renderChatMessages(data.messages || []);
+        setChatStatus('New conversation created. Start chatting now.');
+        aiChatLoaded = true;
+      } catch (error) {
+        setChatStatus(error.message || 'Unable to create new conversation.', true);
+      } finally {
+        aiChatInput.disabled = false;
+        aiChatDeleteBtn.disabled = false;
+        aiChatNewBtn.disabled = false;
+      }
+    }
+
+    async function deleteChatConversation() {
+      if (!confirm('Delete the current chat conversation? This will start a new conversation.')) {
+        return;
+      }
+
+      aiChatInput.disabled = true;
+      aiChatDeleteBtn.disabled = true;
+      aiChatNewBtn.disabled = true;
+      setChatStatus('Deleting current conversation...');
+
+      try {
+        const response = await fetch(`/api/stocks/${symbol}/ai-chat/delete-conversation`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          const errorJson = await response.json().catch(() => null);
+          throw new Error(errorJson?.error || `Unable to delete conversation (${response.status})`);
+        }
+
+        await createNewChatConversation();
+      } catch (error) {
+        setChatStatus(error.message || 'Unable to delete conversation.', true);
+      } finally {
+        aiChatInput.disabled = false;
+        aiChatDeleteBtn.disabled = false;
+        aiChatNewBtn.disabled = false;
+      }
+    }
+
+    aiChatBtn.onclick = function() {
+      aiChatVisible = !aiChatVisible;
+      aiChatSection.style.display = aiChatVisible ? 'block' : 'none';
+      aiChatBtn.textContent = aiChatVisible ? 'Hide AI Stock Chat' : 'AI Stock Chat';
+      if (aiChatVisible) {
+        if (!aiChatLoaded) {
+          loadAiChatConversation();
+        }
+        aiChatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    };
+
+    aiChatForm.addEventListener('submit', function(event) {
+      event.preventDefault();
+      const question = aiChatInput.value;
+      sendAiChatMessage(question);
+    });
+
+    aiChatNewBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      createNewChatConversation();
+    });
+
+    aiChatDeleteBtn.addEventListener('click', function(event) {
+      event.preventDefault();
+      deleteChatConversation();
+    });
 
     window.addEventListener('click', function(event) {
       if (event.target == document.getElementById('model-modal-xgboost')) {
