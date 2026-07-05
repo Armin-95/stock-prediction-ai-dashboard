@@ -488,6 +488,6 @@ def get_prediction_features(symbol: str, next_close_date, model_type):
         if not row:
             return None
 
-        prediction_features = row
+        prediction_features = row[0]
 
         return prediction_features

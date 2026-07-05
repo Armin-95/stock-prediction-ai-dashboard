@@ -106,6 +106,25 @@ def touch_ai_chat_session(session_id):
 
     return row[0] if row else None
 
+def touch_ai_chat_conversation(conversation_id, symbol, session_id):
+    symbol = symbol.upper()
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("""
+            UPDATE ai_chat_conversations
+            SET updated_at = NOW(),
+                expires_at = NOW() + INTERVAL '10 days'
+            WHERE id = %s
+              AND symbol =%s
+              AND session_id =%s
+            RETURNING id;
+        """, (conversation_id, symbol , session_id))
+
+        row = cur.fetchone()
+        conn.commit()
+
+    return row[0] if row else None
+
 
 def count_ai_chat_conversations_for_session(session_id):
     with get_connection()as conn, conn.cursor() as cur:
@@ -131,13 +150,30 @@ def create_ai_chat_conversation(session_id, symbol):
         cur.execute("""
             INSERT INTO ai_chat_conversations (session_id, symbol)
             VALUES (%s, %s)
-            RETURNING id
+            RETURNING id;
 
         """, (session_id,symbol))
         conversation_id = cur.fetchone()[0]
         conn.commit()
 
     return conversation_id
+
+def get_last_stock_ai_chat_conversation_id(symbol, session_id):
+    symbol = symbol.upper()
+
+    with get_connection() as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT id
+            FROM ai_chat_conversations
+            WHERE symbol = %s
+                AND session_id = %s
+                AND expires_at > NOW()
+            ORDER BY updated_at DESC
+            LIMIT 1;
+        """,(symbol, session_id))
+        conversations_id = cur.fetchone()
+
+    return conversations_id[0] if conversations_id else None
 
 
 def get_valid_ai_chat_conversation_id(conversation_id, session_id, symbol): #check and validate if this conversation belongs to session and symbol
