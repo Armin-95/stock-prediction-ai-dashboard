@@ -169,7 +169,10 @@ def analyze():
 @app.route('/predict', methods=['POST'])
 @limiter.limit("20 per hour; 50 per day")
 def predict():
-    symbol = request.form['symbol'].upper()
+    symbol = request.form.get('symbol',"").strip().upper()
+    if symbol not in ALLOWED_SYMBOLS:
+        return jsonify({"error":"unsupported symbol."}),400
+    
     company_name = COMPANY_NAMES.get(symbol, symbol)
 
     #check and if needed sync data for prediction (checks/populates: stock_daily_bars_prediction, market_calendar tables in db)
@@ -224,7 +227,10 @@ def predict():
 @app.route("/api/stocks/<symbol>/ai-prediction-explanation", methods=["POST"])
 @limiter.limit("20 per minute; 200 per day")
 def ai_prediction_explanation(symbol):
-    symbol =symbol.upper()
+    symbol = symbol.strip().upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        return jsonify({"error": "Unsupported symbol."}), 400
 
     ai_explanation, ai_model, ai_provider = get_or_create_ai_prediction_explanation(symbol, MODELS)
 
@@ -242,7 +248,10 @@ def ai_prediction_explanation(symbol):
 @app.route("/api/stocks/<symbol>/ai-model-comparison", methods=["POST"])
 @limiter.limit("20 per minute; 200 per day")
 def ai_model_comparison(symbol):
-    symbol =symbol.upper()
+    symbol = symbol.strip().upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        return jsonify({"error": "Unsupported symbol."}), 400
 
     ai_model_comparison_explanation, ai_model, ai_provider = get_or_create_ai_model_comparison_explanation(symbol, MODELS)
     
@@ -260,7 +269,7 @@ def ai_model_comparison(symbol):
 @app.route("/api/stocks/<symbol>/ai-chat/open", methods=["POST"])
 @limiter.limit("5 per minute; 50 per day")
 def open_stock_ai_chat_conversation(symbol):
-    symbol = symbol.upper()
+    symbol = symbol.strip().upper()
     if symbol not in ALLOWED_SYMBOLS:
         
         return jsonify({"error":"unsupported symbol."}),400
@@ -280,7 +289,7 @@ def open_stock_ai_chat_conversation(symbol):
 @app.route("/api/stocks/<symbol>/ai-chat/send-message", methods=["POST"])
 @limiter.limit("5 per minute; 50 per day")
 def send_message_stock_ai_chat_conversation(symbol):
-    symbol = symbol.upper()
+    symbol = symbol.strip().upper()
     if symbol not in ALLOWED_SYMBOLS:
         
         return jsonify({"error":"unsupported symbol."}),400
@@ -309,7 +318,7 @@ def send_message_stock_ai_chat_conversation(symbol):
 @app.route("/api/stocks/<symbol>/ai-chat/delete-conversation", methods=["DELETE"])
 @limiter.limit("5 per minute; 20 per day")
 def delete_user_stock_ai_chat_conversation(symbol):
-    symbol = symbol.upper()
+    symbol = symbol.strip().upper()
 
     if symbol not in ALLOWED_SYMBOLS:
         return jsonify({"error":"unsupported symbol."}),400
@@ -334,7 +343,7 @@ def delete_user_stock_ai_chat_conversation(symbol):
 @app.route("/api/stocks/<symbol>/ai-chat/new-conversation", methods=["POST"])
 @limiter.limit("5 per minute; 50 per day")
 def create_new_stock_ai_chat_conversation_route(symbol):
-    symbol = symbol.upper()
+    symbol = symbol.strip().upper()
 
     if symbol not in ALLOWED_SYMBOLS:
         return jsonify({"error":"unsupported symbol."}),400

@@ -203,7 +203,7 @@ button:hover {
 }
 
 .ai-chat-main-action {
-  width: 40%;
+  width: 70%;
   max-width: 1176px;
   margin: 42px auto 18px auto;
   padding: 0;
@@ -627,4 +627,12 @@ canvas {
   .ai-chat-controls {
     grid-template-columns: 1fr;
   }
+}
+
+contentElement {
+  white-space: pre-wrap;
+}
+
+.chat-bubble {
+  white-space: pre-wrap;
 }

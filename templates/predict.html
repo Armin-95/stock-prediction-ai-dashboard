@@ -5,7 +5,7 @@
   <title>Stock Prediction Result</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="dashboard-title-wrapper">
@@ -276,7 +276,7 @@
       </p>
       <p style="margin-top:18px;">
         For more details click here:
-        <a href="https://en.wikipedia.org/wiki/XGBoost" target="_blank" style="color:#00e676;">Wikipedia: XGBoost</a>
+        <a href="https://en.wikipedia.org/wiki/XGBoost" target="_blank" rel="noopener noreferrer" style="color:#00e676;">Wikipedia: XGBoost</a>
       </p>
     </div>
   </div>
@@ -291,7 +291,7 @@
       </p>
       <p style="margin-top:18px;">
         For more details click here:
-        <a href="https://en.wikipedia.org/wiki/Ridge_regression" target="_blank" style="color:#00e676;">Wikipedia: Ridge Regression</a>
+        <a href="https://en.wikipedia.org/wiki/Ridge_regression" target="_blank" rel="noopener noreferrer" style="color:#00e676;">Wikipedia: Ridge Regression</a>
       </p>
     </div>
   </div>
@@ -455,7 +455,7 @@
 
   // Recompute last index AFTER adding prediction
   const lastIdx = pricesWithPredXgboost.length - 1;
-  const symbol = '{{ symbol }}';
+  const symbol = {{ symbol|tojson }};
 
   // Style last point differently
   const dataColors = pricesWithPredXgboost.map((_, i) => i === lastIdx ? '#ff1744' : '#00e676');
@@ -770,8 +770,7 @@
       }
 
       const data = await response.json();
-      contentElement.innerHTML = formatAiText(data.explanation || 'No explanation was returned.');
-      document.getElementById(modelElementId).textContent = data.response_model || '—';
+      contentElement.textContent = data.explanation || 'No explanation was returned.';      document.getElementById(modelElementId).textContent = data.response_model || '—';
       document.getElementById(providerElementId).textContent = data.response_provider || '—';
       return true;
     }
@@ -875,10 +874,14 @@
       wrapper.className = `chat-message ${isUser ? 'chat-message-user' : 'chat-message-assistant'}`;
       const bubble = document.createElement('div');
       bubble.className = `chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-assistant'}`;
-      bubble.innerHTML = status === 'failed' && !content
-        ? '<em>The AI service is temporarily busy. Please try again later.</em>'
-        : escapeChatText(content || (isUser ? 'You sent an empty message.' : 'No response content.'));
-
+      if (status === 'failed' && !content) {
+        const errorText = document.createElement('em');
+        errorText.textContent = 'The AI service is temporarily busy. Please try again later.';
+        bubble.appendChild(errorText);
+      } else {
+        bubble.textContent = content || (isUser ? 'You sent an empty message.' : 'No response content.');
+      }
+      
       const meta = document.createElement('div');
       meta.className = 'chat-meta';
       meta.textContent = isUser ? 'You' : 'Assistant';
