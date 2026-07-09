@@ -636,3 +636,56 @@ contentElement {
 .chat-bubble {
   white-space: pre-wrap;
 }
+
+.cookie-banner {
+  display: none;
+  position: fixed;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  z-index: 9999;
+  background: #111827;
+  color: white;
+  padding: 18px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.cookie-banner p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.cookie-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cookie-buttons button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#accept-cookies {
+  background: #2563eb;
+  color: white;
+}
+
+#reject-cookies {
+  background: #374151;
+  color: white;
+}
+
+.cookie-policy-link {
+  color: white;
+  text-decoration: underline;
+  font-weight: 600;
+  align-self: center;
+}

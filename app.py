@@ -72,6 +72,10 @@ limiter = Limiter(
 )
 
 
+def has_cookie_consent():
+    return request.cookies.get("cookie_consent") == "accepted"
+
+
 COMPANY_NAMES = {
     'AAPL': 'Apple Inc.',
     'MSFT': 'Microsoft Corporation',
@@ -133,6 +137,12 @@ def fetch_data(symbol: str):
         CACHE.popitem(last=False)
 
     return df
+
+@app.route("/privacy-policy")
+def privacy_policy():
+
+    return render_template("privacy_policy.html")
+
 
 @app.route('/', methods=['GET'])
 def index():
@@ -274,6 +284,10 @@ def open_stock_ai_chat_conversation(symbol):
         
         return jsonify({"error":"unsupported symbol."}),400
     
+    if not has_cookie_consent():
+
+        return jsonify({"error": "Please accept optional cookies to use saved AI chat history."}), 403
+    
     try:
         get_or_create_stock_ai_chat_conversation(symbol)
         conversation_messages = get_stock_ai_chat_messages_for_display(symbol, limit=20)
@@ -293,6 +307,10 @@ def send_message_stock_ai_chat_conversation(symbol):
     if symbol not in ALLOWED_SYMBOLS:
         
         return jsonify({"error":"unsupported symbol."}),400
+    
+    if not has_cookie_consent():
+
+        return jsonify({"error": "Please accept optional cookies to use saved AI chat history."}), 403
     
     try:
         data = request.get_json(silent=True) or {}
@@ -321,7 +339,12 @@ def delete_user_stock_ai_chat_conversation(symbol):
     symbol = symbol.strip().upper()
 
     if symbol not in ALLOWED_SYMBOLS:
+
         return jsonify({"error":"unsupported symbol."}),400
+    
+    if not has_cookie_consent():
+
+        return jsonify({"error": "Please accept optional cookies to use saved AI chat history."}), 403
     
     try:
         deleted_count = delete_stock_ai_chat_conversation(symbol) # in future add selected_conversation_id if user want to delete other than active conversation
@@ -346,8 +369,13 @@ def create_new_stock_ai_chat_conversation_route(symbol):
     symbol = symbol.strip().upper()
 
     if symbol not in ALLOWED_SYMBOLS:
+
         return jsonify({"error":"unsupported symbol."}),400
     
+    if not has_cookie_consent():
+
+        return jsonify({"error": "Please accept optional cookies to use saved AI chat history."}), 403
+
     try:
         new_conversation = create_new_stock_ai_chat_conversation(symbol)
 
