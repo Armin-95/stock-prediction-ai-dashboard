@@ -2,6 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const banner = document.getElementById("cookie-banner");
   const acceptBtn = document.getElementById("accept-cookies");
   const rejectBtn = document.getElementById("reject-cookies");
+  const settingsBtn = document.getElementById("cookie-settings-btn");
 
   if (!banner || !acceptBtn || !rejectBtn) {
     return;
@@ -13,6 +14,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (!hasConsentCookie) {
     banner.style.display = "block";
+  }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", () => {
+      banner.style.display = "block";
+    });
   }
 
   acceptBtn.addEventListener("click", () => {

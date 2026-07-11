@@ -213,6 +213,10 @@
         </div>
       </div>
 
+      <div id="ai-chat-cookie-warning" class="ai-chat-cookie-warning" role="alert" style="display:none;">
+        Please accept optional cookies to use saved AI chat history.
+      </div>
+
       <div id="ai-chat-messages" class="ai-chat-messages">
         <div class="ai-chat-placeholder">Chat will appear here after opening or sending a message.</div>
       </div>
@@ -851,6 +855,7 @@
     const aiChatInput = document.getElementById('ai-chat-input');
     const aiChatDeleteBtn = document.getElementById('ai-chat-delete-btn');
     const aiChatNewBtn = document.getElementById('ai-chat-new-btn');
+    const aiChatCookieWarning = document.getElementById('ai-chat-cookie-warning');
 
     let aiChatVisible = false;
     let aiChatLoaded = false;
@@ -922,7 +927,37 @@
       aiChatStatus.style.color = isError ? '#ffb3b3' : '#b6f6fc';
     }
 
+    function hasCookieConsent() {
+      return document.cookie.split('; ').some(cookie => cookie.startsWith('cookie_consent=accepted'));
+    }
+
+    function showCookieConsentWarning(show = true) {
+      if (!aiChatCookieWarning) {
+        return;
+      }
+      aiChatCookieWarning.style.display = show ? 'block' : 'none';
+    }
+
+    function showCookieConsentNotice() {
+      if (!hasCookieConsent()) {
+        showCookieConsentWarning(true);
+        setChatStatus('Please accept optional cookies to use saved AI chat history.', true);
+        aiChatMessagesContainer.innerHTML = '<div class="ai-chat-placeholder">Please accept optional cookies to use saved AI chat history.</div>';
+        return true;
+      }
+      showCookieConsentWarning(false);
+      return false;
+    }
+
     async function loadAiChatConversation() {
+      if (showCookieConsentNotice()) {
+        aiChatBtn.disabled = false;
+        aiChatInput.disabled = false;
+        aiChatDeleteBtn.disabled = false;
+        aiChatNewBtn.disabled = false;
+        return;
+      }
+
       aiChatBtn.disabled = true;
       aiChatInput.disabled = true;
       aiChatDeleteBtn.disabled = true;
@@ -962,6 +997,11 @@
 
       if (!trimmedQuestion) {
         setChatStatus('Enter a message before sending.', true);
+        return;
+      }
+
+      if (showCookieConsentNotice()) {
+        aiChatInput.focus();
         return;
       }
 
@@ -1009,6 +1049,10 @@
     }
 
     async function createNewChatConversation() {
+      if (showCookieConsentNotice()) {
+        return;
+      }
+
       aiChatInput.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
@@ -1040,6 +1084,10 @@
 
     async function deleteChatConversation() {
       if (!confirm('Delete the current chat conversation? This will start a new conversation.')) {
+        return;
+      }
+
+      if (showCookieConsentNotice()) {
         return;
       }
 
@@ -1076,6 +1124,8 @@
       if (aiChatVisible) {
         if (!aiChatLoaded) {
           loadAiChatConversation();
+        } else if (!hasCookieConsent()) {
+          showCookieConsentNotice();
         }
         aiChatSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
@@ -1096,6 +1146,21 @@
       event.preventDefault();
       deleteChatConversation();
     });
+
+    const acceptCookiesBtn = document.getElementById('accept-cookies');
+    const rejectCookiesBtn = document.getElementById('reject-cookies');
+
+    if (acceptCookiesBtn) {
+      acceptCookiesBtn.addEventListener('click', function() {
+        showCookieConsentWarning(false);
+      });
+    }
+
+    if (rejectCookiesBtn) {
+      rejectCookiesBtn.addEventListener('click', function() {
+        showCookieConsentWarning(true);
+      });
+    }
 
     window.addEventListener('click', function(event) {
       if (event.target == document.getElementById('model-modal-xgboost')) {

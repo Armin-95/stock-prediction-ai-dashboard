@@ -464,6 +464,19 @@ canvas {
   margin-bottom: 18px;
 }
 
+.ai-chat-cookie-warning {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(248, 113, 113, 0.16);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  color: #ffd8d8;
+  font-size: 1.2rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .ai-chat-status {
   color: #b6f6fc;
   font-size: 0.95rem;
@@ -635,6 +648,27 @@ contentElement {
 
 .chat-bubble {
   white-space: pre-wrap;
+}
+
+.cookie-settings-button {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 10000;
+  display: inline-block;
+  margin: 0;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #2563eb;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+}
+
+.cookie-settings-button:hover {
+  opacity: 0.95;
 }
 
 .cookie-banner {
