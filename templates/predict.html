@@ -27,14 +27,14 @@
   </form>
   <div class="stocks-grid" style="grid-template-columns: repeat(2, 1fr); gap: 40px; justify-items: center;max-width: 1200px; margin: 40px auto;">
     <div class="stock-card-predict" style="width: 520px; min-height: 420px; background: #23293a; border-radius: 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.18); display: flex; flex-direction: column; align-items: center; padding: 32px 24px;">
-      <h3 class="ml-model" style="font-size:2rem;">Machine Learning model</h3>
-      <h4 style="font-size:1.3rem;">XGBoost (eXtreme Gradient Boosting)</h4>
+      <h3 class="ml-model" style="font-size:2.4rem;">Machine Learning model</h3>
+      <h4 style="font-size:1.4rem;">XGBoost (eXtreme Gradient Boosting)</h4>
       <div style="margin: 18px 0;">
         <div style="font-size:1rem; color:#00e676; margin-bottom:14px;text-align:center;">
           Last Close: <span style="font-family: 'Roboto Mono', monospace;">${{ prices[-1]|round(4) }}  Date:{{times[-1] }}</span>
         </div>
-        <div style="font-size:1.2rem; color:#b6f6fc;">
-          Predicted Next Close: <span style="font-family: 'Roboto Mono', monospace;">${{ results["xgboost"][1]|round(4)}}</span>
+        <div style="font-size:1.6rem; color:#b6f6fc;">
+          Predicted Next Close: <span style="font-family: 'Roboto Mono', monospace; display:inline-block; margin-bottom:10px;">${{ results["xgboost"][1]|round(4)}}</span>
         </div>
         <div style="font-size:1.2rem; color:#b6f6fc; text-align:center;">
           Predicted Next Return: <span style="font-family: 'Roboto Mono', monospace;">{{ (results["xgboost"][0]*100)|round(4) }}%</span>
@@ -98,14 +98,14 @@
       
     </div>
       <div class="stock-card-predict" style="width: 520px; min-height: 420px; background: #23293a; border-radius: 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.18); display: flex; flex-direction: column; align-items: center; padding: 32px 24px;">
-        <h3 class="ml-model" style="font-size:2rem;">Machine Learning model</h3>
-        <h4 style="font-size:1.3rem;">Ridge (Ridge regression)</h4>
+        <h3 class="ml-model" style="font-size:2.4rem;">Machine Learning model</h3>
+        <h4 style="font-size:1.4rem;">Ridge (Ridge regression)</h4>
       <div style="margin: 18px 0;">
         <div style="font-size:1rem; color:#00e676; margin-bottom:14px;text-align:center;">
           Last Close: <span style="font-family: 'Roboto Mono', monospace;">${{ prices[-1]|round(4) }}  Date:{{times[-1] }}</span>
         </div>
-        <div style="font-size:1.2rem; color:#b6f6fc;">
-          Predicted Next Close: <span style="font-family: 'Roboto Mono', monospace;">${{ results["ridge"][1]|round(4)}}</span>
+        <div style="font-size:1.6rem; color:#b6f6fc;">
+          Predicted Next Close: <span style="font-family: 'Roboto Mono', monospace; display:inline-block; margin-bottom:10px;">${{ results["ridge"][1]|round(4)}}</span>
         </div>
         <div style="font-size:1.2rem; color:#b6f6fc; text-align:center;">
           Predicted Next Return: <span style="font-family: 'Roboto Mono', monospace;">{{ (results["ridge"][0]*100)|round(4) }}%</span>
@@ -172,7 +172,7 @@
 
   <div class="ai-chat-main-action">
     <button id="ai-chat-btn" class="ai-table-button ai-stock-chat-main-button">
-      AI Stock Chat
+      Open AI Stock Chat
     </button>
   </div>
 
@@ -444,7 +444,7 @@
       </tbody>
     </table>
   </div>
-
+{% include "partials/cookie_banner.html" %}
 <script>
   // Data coming from app.py
   const chartTimes = {{ times|tojson }};
@@ -581,11 +581,6 @@
     };
     document.getElementById('close-modal-xgboost').onclick = function() {
       document.getElementById('model-modal-xgboost').style.display = 'none';
-    };
-    window.onclick = function(event) {
-      if (event.target == document.getElementById('model-modal-xgboost')) {
-        document.getElementById('model-modal-xgboost').style.display = 'none';
-      }
     };
 
     // Show/Hide model metrics section for XGBoost
@@ -748,18 +743,6 @@
     let aiPredictionVisible = false;
     let aiPredictionLoaded = false;
 
-    function formatAiText(text) {
-      const safeText = text
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-
-      return safeText
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<br><br>')
-        .replace(/\n/g, '<br>');
-    }
-
     async function fetchAiExplanation(endpoint, contentElement, modelElementId, providerElementId) {
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -852,6 +835,7 @@
     const aiChatStatus = document.getElementById('ai-chat-status');
     const aiChatMessagesContainer = document.getElementById('ai-chat-messages');
     const aiChatForm = document.getElementById('ai-chat-form');
+    const aiChatSendBtn = aiChatForm.querySelector('button[type="submit"]');
     const aiChatInput = document.getElementById('ai-chat-input');
     const aiChatDeleteBtn = document.getElementById('ai-chat-delete-btn');
     const aiChatNewBtn = document.getElementById('ai-chat-new-btn');
@@ -860,14 +844,6 @@
     let aiChatVisible = false;
     let aiChatLoaded = false;
     let aiChatConversationId = null;
-
-    function escapeChatText(text) {
-      return String(text)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replace(/\n/g, '<br>');
-    }
 
     function buildChatMessage(message) {
       const role = message.role || 'assistant';
@@ -928,7 +904,7 @@
     }
 
     function hasCookieConsent() {
-      return document.cookie.split('; ').some(cookie => cookie.startsWith('cookie_consent=accepted'));
+      return document.cookie.split('; ').includes('cookie_consent=accepted');
     }
 
     function showCookieConsentWarning(show = true) {
@@ -940,26 +916,49 @@
 
     function showCookieConsentNotice() {
       if (!hasCookieConsent()) {
+        aiChatLoaded = false;
+        aiChatConversationId = null;
+
         showCookieConsentWarning(true);
-        setChatStatus('Please accept optional cookies to use saved AI chat history.', true);
-        aiChatMessagesContainer.innerHTML = '<div class="ai-chat-placeholder">Please accept optional cookies to use saved AI chat history.</div>';
+
+        setChatStatus(
+          'Please accept optional cookies to use saved AI chat history.',
+          true
+        );
+
+        aiChatMessagesContainer.innerHTML =
+          '<div class="ai-chat-placeholder">Please accept optional cookies to use saved AI chat history.</div>';
+
+        aiChatInput.disabled = true;
+        aiChatSendBtn.disabled = true;
+        aiChatDeleteBtn.disabled = true;
+        aiChatNewBtn.disabled = true;
+
         return true;
       }
+
       showCookieConsentWarning(false);
+
+      aiChatInput.disabled = false;
+      aiChatSendBtn.disabled = false;
+      aiChatDeleteBtn.disabled = false;
+      aiChatNewBtn.disabled = false;
+
       return false;
     }
 
     async function loadAiChatConversation() {
       if (showCookieConsentNotice()) {
         aiChatBtn.disabled = false;
-        aiChatInput.disabled = false;
-        aiChatDeleteBtn.disabled = false;
-        aiChatNewBtn.disabled = false;
         return;
       }
 
+      aiChatLoaded = false;
+      aiChatConversationId = null;
+
       aiChatBtn.disabled = true;
       aiChatInput.disabled = true;
+      aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
       setChatStatus('Loading chat...');
@@ -986,22 +985,19 @@
         setChatStatus(error.message || 'Unable to load chat.', true);
       } finally {
         aiChatBtn.disabled = false;
-        aiChatInput.disabled = false;
-        aiChatDeleteBtn.disabled = false;
-        aiChatNewBtn.disabled = false;
+        showCookieConsentNotice();
       }
     }
 
     async function sendAiChatMessage(question) {
       const trimmedQuestion = question.trim();
 
-      if (!trimmedQuestion) {
-        setChatStatus('Enter a message before sending.', true);
+      if (showCookieConsentNotice()) {
         return;
       }
 
-      if (showCookieConsentNotice()) {
-        aiChatInput.focus();
+      if (!trimmedQuestion) {
+        setChatStatus('Enter a message before sending.', true);
         return;
       }
 
@@ -1009,6 +1005,7 @@
       aiChatInput.value = '';
 
       aiChatInput.disabled = true;
+      aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
       setChatStatus('Sending message...');
@@ -1042,9 +1039,7 @@
         aiChatInput.focus();
 
       } finally {
-        aiChatInput.disabled = false;
-        aiChatDeleteBtn.disabled = false;
-        aiChatNewBtn.disabled = false;
+        showCookieConsentNotice();
       }
     }
 
@@ -1054,6 +1049,7 @@
       }
 
       aiChatInput.disabled = true;
+      aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
       setChatStatus('Creating a new conversation...');
@@ -1076,22 +1072,21 @@
       } catch (error) {
         setChatStatus(error.message || 'Unable to create new conversation.', true);
       } finally {
-        aiChatInput.disabled = false;
-        aiChatDeleteBtn.disabled = false;
-        aiChatNewBtn.disabled = false;
+        showCookieConsentNotice();
       }
     }
 
     async function deleteChatConversation() {
-      if (!confirm('Delete the current chat conversation? This will start a new conversation.')) {
-        return;
-      }
-
       if (showCookieConsentNotice()) {
         return;
       }
 
+      if (!confirm('Delete the current chat conversation? This will start a new conversation.')) {
+        return;
+      }
+
       aiChatInput.disabled = true;
+      aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
       setChatStatus('Deleting current conversation...');
@@ -1111,16 +1106,14 @@
       } catch (error) {
         setChatStatus(error.message || 'Unable to delete conversation.', true);
       } finally {
-        aiChatInput.disabled = false;
-        aiChatDeleteBtn.disabled = false;
-        aiChatNewBtn.disabled = false;
+        showCookieConsentNotice();
       }
     }
 
     aiChatBtn.onclick = function() {
       aiChatVisible = !aiChatVisible;
       aiChatSection.style.display = aiChatVisible ? 'block' : 'none';
-      aiChatBtn.textContent = aiChatVisible ? 'Hide AI Stock Chat' : 'AI Stock Chat';
+      aiChatBtn.textContent = aiChatVisible ? 'Close AI Stock Chat' : 'Open AI Stock Chat';
       if (aiChatVisible) {
         if (!aiChatLoaded) {
           loadAiChatConversation();
@@ -1150,15 +1143,25 @@
     const acceptCookiesBtn = document.getElementById('accept-cookies');
     const rejectCookiesBtn = document.getElementById('reject-cookies');
 
+    function syncAiChatWithCookieConsent() {
+      if (showCookieConsentNotice()) {
+        return;
+      }
+
+      if (aiChatVisible) {
+        loadAiChatConversation();
+      }
+    }
+
     if (acceptCookiesBtn) {
       acceptCookiesBtn.addEventListener('click', function() {
-        showCookieConsentWarning(false);
+        setTimeout(syncAiChatWithCookieConsent, 0);
       });
     }
 
     if (rejectCookiesBtn) {
       rejectCookiesBtn.addEventListener('click', function() {
-        showCookieConsentWarning(true);
+        setTimeout(syncAiChatWithCookieConsent, 0);
       });
     }
 
@@ -1193,6 +1196,5 @@
   <p style="text-align:center; margin-top:40px">
     <a href="{{ url_for('index') }}" style="font-size:1.3rem; color:rgb(216, 216, 236); text-decoration:none;">← Back to Main Page</a>
   </p>
-{% include "partials/cookie_banner.html" %}
 </body>
 </html>
