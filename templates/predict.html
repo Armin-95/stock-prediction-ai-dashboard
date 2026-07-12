@@ -894,6 +894,22 @@
       scrollChatToBottom();
     }
 
+    function appendChatMessage(message) {
+      const placeholder =
+        aiChatMessagesContainer.querySelector('.ai-chat-placeholder');
+
+      if (placeholder) {
+        placeholder.remove();
+      }
+
+      const messageElement = buildChatMessage(message);
+
+      aiChatMessagesContainer.appendChild(messageElement);
+      scrollChatToBottom();
+
+      return messageElement;
+    }
+
     function scrollChatToBottom() {
       aiChatMessagesContainer.scrollTop = aiChatMessagesContainer.scrollHeight;
     }
@@ -904,7 +920,10 @@
     }
 
     function hasCookieConsent() {
-      return document.cookie.split('; ').includes('cookie_consent=accepted');
+      return document.cookie
+        .split(';')
+        .map(cookie => cookie.trim())
+        .includes('cookie_consent=accepted');
     }
 
     function showCookieConsentWarning(show = true) {
@@ -1001,45 +1020,92 @@
         return;
       }
 
-      // Clear text box immediately after valid submit
       aiChatInput.value = '';
+
+      // Show the user message immediately.
+      appendChatMessage({
+        role: 'user',
+        content: trimmedQuestion,
+        status: 'completed',
+        created_at: new Date().toISOString()
+      });
+
+      // Temporary assistant bubble while waiting.
+      const pendingAssistantElement = appendChatMessage({
+        role: 'assistant',
+        content: 'Thinking...',
+        status: 'pending'
+      });
 
       aiChatInput.disabled = true;
       aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
-      setChatStatus('Sending message...');
+
+      setChatStatus('Generating response...');
 
       try {
-        const response = await fetch(`/api/stocks/${symbol}/ai-chat/send-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: trimmedQuestion })
-        });
+        const response = await fetch(
+          `/api/stocks/${symbol}/ai-chat/send-message`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              question: trimmedQuestion
+            })
+          }
+        );
+
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
-          const errorJson = await response.json().catch(() => null);
-
-          // Refresh chat because backend may have saved:
-          // user message + failed assistant message
-          await loadAiChatConversation();
-
           throw new Error(
-            errorJson?.error_message ||
-            errorJson?.error ||
+            data?.error_message ||
+            data?.error ||
             `Failed to send message (${response.status})`
           );
         }
 
-        await loadAiChatConversation();
-        aiChatInput.focus();
+        if (!data || typeof data.content !== 'string') {
+          throw new Error('The AI service returned an invalid response.');
+        }
+
+        // Remove "Thinking..."
+        pendingAssistantElement.remove();
+
+        // Append only the new assistant message returned by Flask.
+        appendChatMessage({
+          ...data,
+          created_at: new Date().toISOString()
+        });
+
+        aiChatLoaded = true;
+        setChatStatus('Response received.');
 
       } catch (error) {
-        setChatStatus(error.message || 'Failed to send message.', true);
-        aiChatInput.focus();
+        const errorMessage =
+          error.message || 'Unable to generate a response.';
+
+        const bubble =
+          pendingAssistantElement.querySelector('.chat-bubble');
+
+        const meta =
+          pendingAssistantElement.querySelector('.chat-meta');
+
+        bubble.textContent = errorMessage;
+        meta.textContent = 'Assistant · failed';
+
+        setChatStatus('Message failed. Please try again.', true);
+      
 
       } finally {
         showCookieConsentNotice();
+
+        if (hasCookieConsent()) {
+          aiChatInput.focus();
+        }
       }
     }
 
