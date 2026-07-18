@@ -553,7 +553,7 @@ canvas {
   padding: 14px 16px;
   border-radius: 18px;
   font-size: 0.98rem;
-  line-height: 1.5;
+  line-height: 1.4;
   word-break: break-word;
   box-shadow: 0 4px 18px rgba(0,0,0,0.16);
 }
@@ -731,7 +731,7 @@ contentElement {
 }
 
 #reject-cookies {
-  background: #374151;
+  background: #807f7d;
   color: white;
 }
 
@@ -740,4 +740,25 @@ contentElement {
   text-decoration: underline;
   font-weight: 600;
   align-self: center;
+}
+
+.chat-bubble p {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.chat-bubble ul,
+.chat-bubble ol {
+  margin: 4px 0 4px 16px !important;
+  padding-left: 12px !important;
+}
+
+.chat-bubble li {
+  margin: 0 0 4px 0 !important;
+  padding: 0 !important;
+}
+
+.chat-bubble li p {
+  margin: 0 !important;
+  padding: 0 !important;
 }
