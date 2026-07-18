@@ -5,7 +5,9 @@
   <title>Stock Prediction Result</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:400,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.9/dist/chart.umd.min.js"></script>
+  <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/marked.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/purify.min.js') }}"></script>
 </head>
 <body>
   <div class="dashboard-title-wrapper">
@@ -757,7 +759,8 @@
       }
 
       const data = await response.json();
-      contentElement.textContent = data.explanation || 'No explanation was returned.';      document.getElementById(modelElementId).textContent = data.response_model || '—';
+      contentElement.innerHTML = formatMarkdownText( data.explanation || 'No explanation was returned.');      
+      document.getElementById(modelElementId).textContent = data.response_model || '—';
       document.getElementById(providerElementId).textContent = data.response_provider || '—';
       return true;
     }
@@ -845,6 +848,21 @@
     let aiChatLoaded = false;
     let aiChatConversationId = null;
 
+    function formatMarkdownText(text) {
+      const compactText = String(text || '')
+        .replace(/\n\s*\n/g, '\n');
+
+      const rawHtml = marked.parse(compactText, {
+        breaks: false,
+        gfm: true
+      });
+
+      return DOMPurify.sanitize(rawHtml, {
+        ALLOWED_TAGS: ['p','br','strong','em','ul','ol','li','code','pre'],
+        ALLOWED_ATTR: []
+      });
+    }
+
     function buildChatMessage(message) {
       const role = message.role || 'assistant';
       const isUser = role === 'user';
@@ -860,7 +878,7 @@
         errorText.textContent = 'The AI service is temporarily busy. Please try again later.';
         bubble.appendChild(errorText);
       } else {
-        bubble.textContent = content || (isUser ? 'You sent an empty message.' : 'No response content.');
+        bubble.innerHTML = formatMarkdownText( content || (isUser ? 'You sent an empty message.' : 'No response content.'));
       }
       
       const meta = document.createElement('div');
