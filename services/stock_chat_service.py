@@ -20,8 +20,13 @@ from flask import session
 
 logger = logging.getLogger(__name__)
 
+def _make_stock_ai_chat_session_permanent():
+    session.permanent = True
+
 
 def _get_or_create_stock_ai_chat_session():
+    _make_stock_ai_chat_session_permanent()
+
     session_id = session.get("ai_chat_session_id")
 
     if session_id is not None:
@@ -69,6 +74,7 @@ def get_or_create_stock_ai_chat_conversation(symbol):
 
 
 def set_active_stock_ai_chat_conversation(symbol,selected_conversation_id):
+    
     symbol = symbol.upper()
     session_id = _get_or_create_stock_ai_chat_session()
     active_conversation_session_key = _get_stock_session_conversation_key(symbol)
@@ -83,6 +89,8 @@ def set_active_stock_ai_chat_conversation(symbol,selected_conversation_id):
     return str(conversation_id)
 
 def delete_stock_ai_chat_conversation(symbol, selected_conversation_id = None):
+    _make_stock_ai_chat_session_permanent()
+
     symbol = symbol.upper()
     session_id = session.get("ai_chat_session_id") #dont call func because if none I dont want to create new
     
@@ -122,6 +130,8 @@ def delete_stock_ai_chat_conversation(symbol, selected_conversation_id = None):
 
 
 def get_stock_ai_chat_messages_for_display(symbol, limit=20):
+    _make_stock_ai_chat_session_permanent()
+
     symbol = symbol.upper()
     session_id = session.get("ai_chat_session_id")
 
@@ -161,6 +171,8 @@ def get_stock_ai_chat_messages_for_display(symbol, limit=20):
 
 
 def get_stock_ai_chat_messages_for_prompt(symbol, limit=5):
+    _make_stock_ai_chat_session_permanent()
+
     symbol = symbol.upper()
     session_id = session.get("ai_chat_session_id")
 
