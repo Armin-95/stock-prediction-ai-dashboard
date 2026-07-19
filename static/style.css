@@ -762,3 +762,11 @@ contentElement {
   margin: 0 !important;
   padding: 0 !important;
 }
+
+.chat-disclaimer {
+    margin: 8px 16px 12px;
+    font-size: 0.8rem;
+    font-style: italic;
+    color: #b5c8ec;
+    text-align: center;
+}

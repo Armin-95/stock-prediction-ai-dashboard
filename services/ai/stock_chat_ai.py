@@ -20,7 +20,7 @@ def ask_stock_chat(symbol: str, question: str, stock_context: dict | None = None
     if symbol not in ALLOWED_SYMBOLS:
         raise ValueError(f"Unsupported symbol: {symbol}.")
 
-    if not question:
+    if not question or not question.strip():
         raise ValueError("Question is required.")
     
     stock_context_text = json.dumps(stock_context, indent=2, default=str, ensure_ascii=False)
@@ -42,7 +42,6 @@ def ask_stock_chat(symbol: str, question: str, stock_context: dict | None = None
 
     Rules:
     - Explain in simple language.
-    - Be honest that this is only a machine learning prediction, not financial advice.
     - If data is missing, say that the data is not available.
     - Do not invent exact numbers if they are not in the context.
     - Use only provided project data.
@@ -51,6 +50,12 @@ def ask_stock_chat(symbol: str, question: str, stock_context: dict | None = None
     - Convert them into natural language, such as "model quality metrics" and "strategy performance metrics".
     - Do not pretend predictions are guaranteed.
     - Do not give financial advice.
+    - Do not write the financial disclaimer yourself.
+    - The permanent disclaimer is shown in chat window.
+
+    Formatting rules:
+    - Use Markdown formatting.
+    - When using bullet points, each bullet point must stay short and separate.
     """.strip()
 
     client = get_gemini_client()
