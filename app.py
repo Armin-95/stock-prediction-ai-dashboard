@@ -1,5 +1,5 @@
 from datetime import timedelta
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import yfinance as yf
 from collections import OrderedDict
 import joblib
@@ -22,7 +22,9 @@ from services.stock_chat_service import (get_or_create_stock_ai_chat_conversatio
     get_stock_ai_chat_messages_for_display,
     send_stock_ai_chat_message,
     delete_stock_ai_chat_conversation,
-    create_new_stock_ai_chat_conversation
+    create_new_stock_ai_chat_conversation,
+    set_active_stock_ai_chat_conversation,
+    list_available_stock_ai_chat_conversations
 )
 
 
@@ -393,6 +395,64 @@ def create_new_stock_ai_chat_conversation_route(symbol):
         app.logger.warning("Failed to create new stock AI conversation for: %s",symbol)
         return jsonify({"error":"Could not create new AI conversation."}),500
 
+
+@app.route("/api/stocks/<symbol>/ai-chat/conversations/<uuid:conversation_id>/select", methods=["POST"])
+@limiter.limit("5 per minute; 50 per day")
+def set_active_stock_ai_chat_conversation_route(symbol, conversation_id):
+    symbol = symbol.strip().upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    if not has_cookie_consent():
+
+        return jsonify({"error": "cookie_consent_required", "error_message": "Please acept optional cookies to change AI conversation ."}), 403
+    
+    selected_conversation_id = str(conversation_id).strip()
+    if not selected_conversation_id:
+
+        return jsonify({"error": "invalid_request", "error_message": "A conversation ID is required."}), 400
+    
+    try:
+        new_active_conversation_id = set_active_stock_ai_chat_conversation(symbol,selected_conversation_id)
+        
+        if not new_active_conversation_id:
+            app.logger.warning("Conversation ID %s did not validate, could not be set as active for %s",selected_conversation_id, symbol)
+
+            return jsonify({"error": "conversation_not_found","error_message":"Conversation could not be found for this session and symbol."}),404
+        
+        return jsonify({"message":" conversation successfully set up as active."}),200
+
+    except Exception:
+        app.logger.exception("Failed to set up choosen active stock AI conversation for: %s",symbol)
+
+        return jsonify({"error":"Could not set up as active AI conversation."}),500
+
+
+@app.route("/api/stocks/<symbol>/ai-chat/conversations", methods=["GET"])
+@limiter.limit("5 per minute; 75 per day") 
+def list_available_stock_ai_chat_conversations_route(symbol):
+    symbol = symbol.strip().upper()
+
+    if symbol not in ALLOWED_SYMBOLS:
+        
+        return jsonify({"error":"unsupported symbol."}),400
+    
+    if not has_cookie_consent():
+
+        return jsonify({"error": "cookie_consent_required", "error_message": "Please acept optional cookies to change AI conversation ."}), 403
+    
+    try:
+        available_conversations = list_available_stock_ai_chat_conversations (symbol)
+        active_conversation_id = session.get(f"chat_conversation_id_{symbol}")
+
+        return jsonify({"symbol":symbol, "active_conversation_id": active_conversation_id, "conversations":available_conversations})
+    
+    except Exception:
+        app.logger.exception("Failed to list available conversations for: %s", symbol)
+
+        return jsonify({"error": "Could not retrieve available conversations."}),500
 
 
 @app.route('/api/stock_data')

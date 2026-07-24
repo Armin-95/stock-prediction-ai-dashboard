@@ -219,21 +219,32 @@
         Please accept optional cookies to use saved AI chat history.
       </div>
 
-      <div id="ai-chat-messages" class="ai-chat-messages">
-        <div class="ai-chat-placeholder">Chat will appear here after opening or sending a message.</div>
-      </div>
+      <div class="ai-chat-layout">
+        <aside class="ai-chat-conversation-panel" aria-label="AI chat conversations">
+          <div class="ai-chat-conversation-title">Conversations</div>
+          <div id="ai-chat-conversations-list" class="ai-chat-conversation-list">
+            <div class="ai-chat-conversation-empty">Open chat to load conversations.</div>
+          </div>
+        </aside>
 
-      <form id="ai-chat-form" class="ai-chat-controls">
-        <textarea id="ai-chat-input" class="ai-chat-input" placeholder="Type your question here..." rows="3" required></textarea>
-        <button type="submit" class="ai-chat-button">Send message</button>
-      </form>
-      <p class="chat-disclaimer">
-        AI-generated responses may contain errors or outdated information.
-        Stock predictions are based on historical data and machine learning models,
-        and actual results may differ. This content is for informational and
-        educational purposes only and is not financial or investment advice.
-        Always verify important information before making investment decisions.
-      </p>
+        <div class="ai-chat-message-panel">
+          <div id="ai-chat-messages" class="ai-chat-messages">
+            <div class="ai-chat-placeholder">Chat will appear here after opening or sending a message.</div>
+          </div>
+
+          <form id="ai-chat-form" class="ai-chat-controls">
+            <textarea id="ai-chat-input" class="ai-chat-input" placeholder="Type your question here..." rows="3" required></textarea>
+            <button type="submit" class="ai-chat-button">Send message</button>
+          </form>
+          <p class="chat-disclaimer">
+            AI-generated responses may contain errors or outdated information.
+            Stock predictions are based on historical data and machine learning models,
+            and actual results may differ. This content is for informational and
+            educational purposes only and is not financial or investment advice.
+            Always verify important information before making investment decisions.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -850,6 +861,7 @@
     const aiChatDeleteBtn = document.getElementById('ai-chat-delete-btn');
     const aiChatNewBtn = document.getElementById('ai-chat-new-btn');
     const aiChatCookieWarning = document.getElementById('ai-chat-cookie-warning');
+    const aiChatConversationsList = document.getElementById('ai-chat-conversations-list');
 
     let aiChatVisible = false;
     let aiChatLoaded = false;
@@ -857,6 +869,7 @@
 
     function formatMarkdownText(text) {
       const compactText = String(text || '')
+        .trim()
         .replace(/\n\s*\n/g, '\n');
 
       const rawHtml = marked.parse(compactText, {
@@ -944,6 +957,172 @@
       aiChatStatus.style.color = isError ? '#ffb3b3' : '#b6f6fc';
     }
 
+    function formatConversationUpdatedAt(value) {
+      if (!value) {
+        return 'Last update unavailable';
+      }
+
+      const updatedAt = new Date(value);
+      if (Number.isNaN(updatedAt.getTime())) {
+        return 'Last update unavailable';
+      }
+
+      return updatedAt.toLocaleString();
+    }
+
+    function setAiChatConversationListDisabled(isDisabled) {
+      if (!aiChatConversationsList) {
+        return;
+      }
+
+      aiChatConversationsList
+        .querySelectorAll('.ai-chat-conversation-item')
+        .forEach((button) => {
+          button.disabled = isDisabled;
+        });
+    }
+
+    function renderAiChatConversationList(conversations = [], activeConversationId = null, emptyMessage = 'No conversations yet.') {
+      if (!aiChatConversationsList) {
+        return;
+      }
+
+      aiChatConversationsList.innerHTML = '';
+
+      if (!Array.isArray(conversations) || conversations.length === 0) {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'ai-chat-conversation-empty';
+        placeholder.textContent = emptyMessage;
+        aiChatConversationsList.appendChild(placeholder);
+        return;
+      }
+
+      let renderedCount = 0;
+
+      conversations.forEach((conversation) => {
+        const conversationId = conversation.id || conversation.conversation_id;
+        if (!conversationId) {
+          return;
+        }
+
+        const isActive = String(conversationId) === String(activeConversationId);
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = `ai-chat-conversation-item${isActive ? ' active' : ''}`;
+        item.dataset.conversationId = conversationId;
+        item.setAttribute('aria-current', isActive ? 'true' : 'false');
+
+        const label = document.createElement('span');
+        label.className = 'ai-chat-conversation-label';
+        label.textContent = isActive ? 'Active conversation' : 'Conversation';
+
+        const time = document.createElement('span');
+        time.className = 'ai-chat-conversation-time';
+        time.textContent = formatConversationUpdatedAt(conversation.updated_at || conversation.created_at);
+
+        item.appendChild(label);
+        item.appendChild(time);
+        item.addEventListener('click', () => {
+          selectAiChatConversation(conversationId);
+        });
+
+        aiChatConversationsList.appendChild(item);
+        renderedCount += 1;
+      });
+
+      if (renderedCount === 0) {
+        renderAiChatConversationList([], activeConversationId, emptyMessage);
+      }
+    }
+
+    async function loadAiChatConversationList() {
+      if (!aiChatConversationsList) {
+        return;
+      }
+
+      if (!hasCookieConsent()) {
+        renderAiChatConversationList([], null, 'Accept optional cookies to load conversations.');
+        return;
+      }
+
+      aiChatConversationsList.innerHTML =
+        '<div class="ai-chat-conversation-empty">Loading conversations...</div>';
+
+      try {
+        const response = await fetch(`/api/stocks/${symbol}/ai-chat/conversations`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error_message ||
+            data?.error ||
+            `Unable to load conversations (${response.status})`
+          );
+        }
+
+        const activeConversationId =
+          data && Object.prototype.hasOwnProperty.call(data, 'active_conversation_id')
+            ? data.active_conversation_id
+            : aiChatConversationId;
+        aiChatConversationId = activeConversationId || null;
+
+        renderAiChatConversationList(data?.conversations || [], activeConversationId);
+        return data;
+      } catch (error) {
+        renderAiChatConversationList([], aiChatConversationId, 'Unable to load conversations.');
+        return null;
+      }
+    }
+
+    async function selectAiChatConversation(conversationId) {
+      if (!conversationId || String(conversationId) === String(aiChatConversationId)) {
+        return;
+      }
+
+      if (showCookieConsentNotice()) {
+        return;
+      }
+
+      aiChatInput.disabled = true;
+      aiChatSendBtn.disabled = true;
+      aiChatDeleteBtn.disabled = true;
+      aiChatNewBtn.disabled = true;
+      setAiChatConversationListDisabled(true);
+      setChatStatus('Loading selected conversation...');
+
+      try {
+        const response = await fetch(
+          `/api/stocks/${symbol}/ai-chat/conversations/${conversationId}/select`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+
+        const data = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(
+            data?.error_message ||
+            data?.error ||
+            `Unable to select conversation (${response.status})`
+          );
+        }
+
+        aiChatConversationId = String(conversationId);
+        await loadAiChatConversation();
+      } catch (error) {
+        setChatStatus(error.message || 'Unable to select conversation.', true);
+        await loadAiChatConversationList();
+      } finally {
+        showCookieConsentNotice();
+      }
+    }
+
     function hasCookieConsent() {
       return document.cookie
         .split(';')
@@ -972,11 +1151,13 @@
 
         aiChatMessagesContainer.innerHTML =
           '<div class="ai-chat-placeholder">Please accept optional cookies to use saved AI chat history.</div>';
+        renderAiChatConversationList([], null, 'Accept optional cookies to load conversations.');
 
         aiChatInput.disabled = true;
         aiChatSendBtn.disabled = true;
         aiChatDeleteBtn.disabled = true;
         aiChatNewBtn.disabled = true;
+        setAiChatConversationListDisabled(true);
 
         return true;
       }
@@ -987,6 +1168,7 @@
       aiChatSendBtn.disabled = false;
       aiChatDeleteBtn.disabled = false;
       aiChatNewBtn.disabled = false;
+      setAiChatConversationListDisabled(false);
 
       return false;
     }
@@ -1005,6 +1187,7 @@
       aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
+      setAiChatConversationListDisabled(true);
       setChatStatus('Loading chat...');
       aiChatMessagesContainer.innerHTML = '<div class="ai-chat-placeholder">Loading conversation...</div>';
       try {
@@ -1020,6 +1203,7 @@
         const data = await response.json();
         aiChatConversationId = data.conversation_id || null;
         renderChatMessages(data.messages || []);
+        await loadAiChatConversationList();
         setChatStatus(data.messages && data.messages.length > 0
           ? `Loaded ${data.messages.length} ${data.messages.length === 1 ? 'message' : 'messages'}.`
           : 'Open chat loaded. Send your first question.');
@@ -1066,6 +1250,7 @@
       aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
+      setAiChatConversationListDisabled(true);
 
       setChatStatus('Generating response...');
 
@@ -1107,6 +1292,7 @@
         });
 
         aiChatLoaded = true;
+        await loadAiChatConversationList();
         setChatStatus('Response received.');
 
       } catch (error) {
@@ -1143,6 +1329,7 @@
       aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
+      setAiChatConversationListDisabled(true);
       setChatStatus('Creating a new conversation...');
       try {
         const response = await fetch(`/api/stocks/${symbol}/ai-chat/new-conversation`, {
@@ -1158,6 +1345,7 @@
         const data = await response.json();
         aiChatConversationId = data.conversation_id || null;
         renderChatMessages(data.messages || []);
+        await loadAiChatConversationList();
         setChatStatus('New conversation created. Start chatting now.');
         aiChatLoaded = true;
       } catch (error) {
@@ -1172,7 +1360,7 @@
         return;
       }
 
-      if (!confirm('Delete the current chat conversation? This will start a new conversation.')) {
+      if (!confirm('Delete the current chat conversation?')) {
         return;
       }
 
@@ -1180,6 +1368,7 @@
       aiChatSendBtn.disabled = true;
       aiChatDeleteBtn.disabled = true;
       aiChatNewBtn.disabled = true;
+      setAiChatConversationListDisabled(true);
       setChatStatus('Deleting current conversation...');
 
       try {
@@ -1193,7 +1382,17 @@
           throw new Error(errorJson?.error || `Unable to delete conversation (${response.status})`);
         }
 
-        await createNewChatConversation();
+        const conversationsData = await loadAiChatConversationList();
+        const remainingConversations = conversationsData?.conversations || [];
+
+        if (remainingConversations.length > 0) {
+          const nextConversationId =
+            remainingConversations[0].id;
+
+          await selectAiChatConversation(nextConversationId);
+        } else {
+          await createNewChatConversation();
+        }
       } catch (error) {
         setChatStatus(error.message || 'Unable to delete conversation.', true);
       } finally {
