@@ -8,6 +8,7 @@ from database.ai_chat_db import (create_ai_chat_session,
     delete_ai_chat_conversation,
     touch_ai_chat_conversation,
     get_last_stock_ai_chat_conversation_id,
+    get_ai_chat_available_conversations,
     ChatConversationLimitExceeded
 )
 from database.db import get_next_close_date, get_next_close_prediction,get_prediction_features
@@ -76,7 +77,13 @@ def get_or_create_stock_ai_chat_conversation(symbol):
 def set_active_stock_ai_chat_conversation(symbol,selected_conversation_id):
     
     symbol = symbol.upper()
-    session_id = _get_or_create_stock_ai_chat_session()
+    session_id = session.get("ai_chat_session_id")
+
+    if not session_id:
+        return None
+    
+    _make_stock_ai_chat_session_permanent()
+    
     active_conversation_session_key = _get_stock_session_conversation_key(symbol)
     conversation_id = get_valid_ai_chat_conversation_id(selected_conversation_id, session_id, symbol)
     
@@ -96,6 +103,14 @@ def delete_stock_ai_chat_conversation(symbol, selected_conversation_id = None):
     
     if session_id is None: #no session user cannot delete 
         return None
+
+    valid_session_id = touch_ai_chat_session(session_id)
+
+    if valid_session_id is None: #after DB valid, clean invalid session ID and active conversation
+        session.pop("ai_chat_session_id", None)
+        session.pop(_get_stock_session_conversation_key(symbol), None)
+
+        return None
     
     active_conversation_session_key = _get_stock_session_conversation_key(symbol) # active conver. key per symbol 
     active_conversation_id  = session.get(active_conversation_session_key) 
@@ -109,7 +124,7 @@ def delete_stock_ai_chat_conversation(symbol, selected_conversation_id = None):
         if not selected_conversation_id:
             return None
         
-    conversation_id = get_valid_ai_chat_conversation_id(selected_conversation_id, session_id, symbol)
+    conversation_id = get_valid_ai_chat_conversation_id(selected_conversation_id, valid_session_id, symbol)
 
     if conversation_id is None: #doesnt exist or wrong selected_conversation_id 
 
@@ -119,7 +134,7 @@ def delete_stock_ai_chat_conversation(symbol, selected_conversation_id = None):
         
         return None
     
-    deleted_count = delete_ai_chat_conversation (conversation_id, session_id, symbol)
+    deleted_count = delete_ai_chat_conversation (conversation_id, valid_session_id, symbol)
 
     if deleted_count > 0: #if succesfull, remove conversation_id also from session if is active
 
@@ -311,6 +326,19 @@ def build_stock_ai_chat_context(symbol: str, models: dict):
         "model_predictions": model_predictions,
         "model_prediction_features":model_prediction_features,
         "model_metrics": model_metrics_for_ai}
+
+
+def list_available_stock_ai_chat_conversations (symbol):
+    _make_stock_ai_chat_session_permanent()
+
+    symbol = symbol.upper()
+    session_id = session.get("ai_chat_session_id")
+
+    if session_id is None:
+        return []
+    available_conversations = get_ai_chat_available_conversations(session_id, symbol)
+
+    return available_conversations
 
 
 def _clean_prompt_data(data: dict | None): #clear None from data in creation for use in AI prompt 

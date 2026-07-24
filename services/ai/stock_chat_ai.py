@@ -56,6 +56,11 @@ def ask_stock_chat(symbol: str, question: str, stock_context: dict | None = None
     Formatting rules:
     - Use Markdown formatting.
     - When using bullet points, each bullet point must stay short and separate.
+    - When discussing predicted_return values, convert decimal returns to percentages.
+    - Example: 0.0009 should be shown as +0.09%.
+    - Use a leading + sign for positive returns and - for negative returns.
+    - Do not show long raw decimal values unless the user explicitly asks for raw model output.
+    - Round percentages to 2-4 decimal places depending on size.
     """.strip()
 
     client = get_gemini_client()

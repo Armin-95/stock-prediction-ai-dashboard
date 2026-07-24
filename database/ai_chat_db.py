@@ -290,7 +290,28 @@ def delete_ai_chat_conversation(conversation_id, session_id, symbol):
         conn.commit() 
 
     return deleted_count  
+
+def get_ai_chat_available_conversations(session_id, symbol):
+    symbol = symbol.upper()
+    with get_connection()as conn, conn.cursor() as cur:
+        cur.execute("""
+            SELECT id, created_at, updated_at
+            FROM ai_chat_conversations
+            WHERE session_id = %s
+                AND symbol = %s
+                AND expires_at > NOW()
+            ORDER by updated_at DESC
+        """, (session_id, symbol))
     
+        conversations_rows = cur.fetchall()
+
+    conversations = [
+        {"id": str(row[0]), 
+        "created_at": row[1].isoformat() if row[1] else None, 
+        "updated_at" : row[2].isoformat() if row[2] else None} for row in conversations_rows]
+
+    return conversations #empty list [] if there aren't any messages
+
 
 
 
